@@ -29,16 +29,22 @@ Sistema de agente funcional que integra herramientas de **consulta, escritura y 
 ### 1. Clona el repositorio
 
 ```bash
-git clone https://github.com/rgaldames/AI-LLM-RAG-Obs-Traza-sobre-Agentes-IA
-cd 5sem-proyecto-llm-rag
+git clone https://github.com/rgaldames/AI-LLM-RAG-Obs-Traza-sobre-Agentes-IA.git
+cd AI-LLM-RAG-Obs-Traza-sobre-Agentes-IA
 ```
 
 ### 2. Crear y activar un entorno virtual
 
-**Windows:**
+**Windows (PowerShell):**
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\activate
+.venv\Scripts\Activate.ps1
+```
+
+**Windows (DOS / CMD):**
+```cmd
+python -m venv .venv
+.venv\Scripts\activate.bat
 ```
 
 **macOS / Linux:**
