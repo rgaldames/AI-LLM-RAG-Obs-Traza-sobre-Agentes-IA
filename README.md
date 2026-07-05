@@ -47,49 +47,32 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Instalar las dependencias
+### 3. Instalar las dependencias del proyecto
 
-Instala los paquetes en el orden indicado para evitar conflictos de versiones:
+Las librerías del agente RAG junto con los nuevos módulos de observabilidad y el dashboard (`streamlit`, `pandas`, `plotly`) están empaquetadas en `requirements.txt`:
 
 ```bash
-# LangChain 1.2+ con todas sus integraciones
-pip install langchain==1.2.15
-pip install langchain-core==1.3.0
-pip install langchain-community==0.4.1
-pip install langchain-openai==1.1.14
-pip install langchain-chroma==1.1.0
-
-# Embeddings locales (HuggingFace  no requiere API key)
-pip install sentence-transformers==5.4.1
-
-# Utilidades
-pip install python-dotenv==1.2.2
-pip install numpy==2.4.4
+pip install -r requirements.txt
 ```
 
-> **Nota:** Si prefieres instalar todo de una vez:
-> ```bash
-> pip install langchain==1.2.15 langchain-core==1.3.0 langchain-community==0.4.1 langchain-openai==1.1.14 langchain-chroma==1.1.0 sentence-transformers==5.4.1 python-dotenv numpy
-> ```
+---
 
-### 4. Configurar las credenciales
+## Configurar las Credenciales
 
-Crea un archivo llamado `.env` en la raíz del proyecto:
+Crea un archivo llamado `.env` en la raíz del proyecto para alojar de forma segura tus variables de entorno locales:
 
-```
-GITHUB_PAT_TOKEN=tu_github_personal_access_token
+```ini
+# Token de GitHub Models (Azure Inference Endpoint)
+GITHUB_PAT_TOKEN=ghp_tu_github_personal_access_token
 ```
 
-**Cómo obtener el token de GitHub Models:**
-
-1. Ir a [github.com](https://github.com)  Click en tu avatar  **Settings**
-2. Menú lateral  **Developer settings**
-3. **Personal access tokens**  **Tokens (classic)**
-4. Click en **Generate new token (classic)**
-5. Dale un nombre (ej: `VetBot-LLM`) y selecciona sin permisos especiales
-6. Copia el token generado y pégalo en el `.env`
-
-> **Importante:** El token de GitHub Models da acceso gratuito a `gpt-4o-mini` a través del endpoint de Azure Inference (`https://models.inference.ai.azure.com`). No es lo mismo que una API Key de OpenAI.
+> [!IMPORTANT]
+> **Cómo obtener el token de GitHub Models:**
+> 1. Inicia sesión en [GitHub](https://github.com).
+> 2. Haz clic en tu avatar en la esquina superior derecha y selecciona **Settings**.
+> 3. En el menú de la izquierda, selecciona **Developer settings** -> **Personal access tokens** -> **Tokens (classic)**.
+> 4. Haz clic en **Generate new token (classic)**, asígnale un nombre (ej: `VetBot-LLM`) y guárdalo **sin marcar ningún permiso especial** (alcance mínimo de lectura pública).
+> 5. Copia el token y pégalo en tu archivo `.env`.
 
 ---
 
@@ -98,24 +81,63 @@ GITHUB_PAT_TOKEN=tu_github_personal_access_token
 ```
 5sem-proyecto-llm-rag/
 |
-|-- agent.py                     <- Agente principal (Tool-Calling Loop + orquestación)
-|-- tools.py                     <- 3 herramientas: consulta, escritura, razonamiento
-|-- short_term_memory.py         <- Memoria de corto plazo (buffer deslizante k=5)
-|-- memory_store.py              <- Memoria de largo plazo (JSON + embeddings semánticos)
-|-- rag_chatbot.py               <- Chatbot RAG original (Evaluación Parcial 1)
-|-- read_pdf.py                  <- Utilidad de lectura de PDFs
+|-- agent.py                     <- Agente principal (Tool-Calling Loop + sanitización + logs)
+|-- tools.py                     <- 3 herramientas del agente: consulta, escritura, razonamiento
+|-- short_term_memory.py         <- Memoria de corto plazo (buffer deslizante de mensajes k=5)
+|-- memory_store.py              <- Memoria de largo plazo (persistencia en JSON + embeddings)
+|-- dashboard.py                 <- Panel interactivo de monitoreo en Streamlit
 |
-|-- veterinary_clinical_data.csv <- Base de conocimiento clínica (50+ registros usados)
-|-- memories.json                <- Memorias persistentes entre sesiones (se genera solo)
-|-- visit_summaries.jsonl        <- Registro de consultas guardadas (se genera solo)
-|-- chroma_db_local/             <- Base de datos vectorial ChromaDB (se genera sola)
+|-- requirements.txt             <- Listado completo de dependencias (incluye Streamlit y Plotly)
+|-- agent_logs.jsonl             <- Archivo de logs estructurados (se genera dinámicamente)
+|-- visit_summaries.jsonl        <- Registro de visitas guardadas por la herramienta (se genera solo)
+|-- memories.json                <- Almacenamiento persistente de recuerdos (se genera solo)
+|-- chroma_db_local/             <- Carpeta de base de datos vectorial ChromaDB (se genera sola)
 |
-|-- .env                         <- Credenciales (NO subir a GitHub  en .gitignore)
+|-- Informe_Tecnico_EP3.md       <- Plantilla del informe de observabilidad y seguridad para evaluación
+|-- .env                         <- Credenciales locales (excluido en .gitignore por seguridad)
 |-- .gitignore
 +-- README.md
 ```
 
-> Los archivos `memories.json`, `visit_summaries.jsonl` y la carpeta `chroma_db_local/` se crean automáticamente la primera vez que ejecutas el agente.
+---
+
+## Evidencia de Trazabilidad y Observabilidad en Acción
+
+Para que cualquier estudiante, profesor o evaluador pueda constatar el funcionamiento de la observabilidad y trazabilidad, se describe a continuación la estructura del archivo `agent_logs.jsonl` generado con cada interacción del agente:
+
+### Ejemplo de Registro JSONL Estructurado (Traza de una consulta con PII)
+
+Si un usuario ingresa una consulta que contiene datos sensibles como un RUT chileno o correo electrónico:
+> *"Hola, mi email es **contacto@cliente.com** y mi RUT es **18.765.432-1**, busquemos si Toby tiene vacunas vigentes."*
+
+El sistema automáticamente la intercepta, la sanitiza en memoria y escribe la traza en `agent_logs.jsonl` con el siguiente formato:
+
+```json
+{
+  "session_id": "84b46b2a-f125-463f-a697-fc12282af85e",
+  "timestamp": "2026-07-04T20:58:12-04:00",
+  "user_input": "Hola, mi email es [REDACTED_EMAIL] y mi RUT es [REDACTED_RUT], busquemos si Toby tiene vacunas vigentes.",
+  "agent_response": "De acuerdo al registro clínico de Toby en nuestra base de datos, tiene su vacuna antirrábica vigente desde el 12 de marzo. Te recomiendo agendar su próximo chequeo preventivo.",
+  "tools_used": [
+    "search_clinical_db"
+  ],
+  "latency": 3.4215,
+  "tokens": {
+    "input_tokens": 185,
+    "output_tokens": 74,
+    "total_tokens": 259
+  },
+  "groundedness_score": 0.8125,
+  "errors": []
+}
+```
+
+### ¿Cómo interpretar y auditar estas trazas?
+- **Trazabilidad de Hilo (Session ID)**: El `session_id` agrupa todas las interacciones realizadas en una misma sesión de chat, permitiendo al evaluador auditar el historial de la conversación.
+- **Seguridad Comprobable**: El RUT y el correo se han anonimizado en caliente antes de guardarse en el log y antes de enviarse al LLM (cumpliendo con la ética de privacidad).
+- **Métricas de Rendimiento**: `latency` calcula exactamente cuántos segundos tomó el ciclo completo (RAG + LLM), y `tokens` detalla el coste computacional de la interacción.
+- **Métrica de Calidad**: `groundedness_score` (entre `0.0` y `1.0`) mide el porcentaje de palabras clave de la respuesta que coinciden con el contexto de ChromaDB, validando si el modelo está inventando respuestas o ciñéndose a la base de datos veterinaria.
+
 
 ---
 
@@ -379,6 +401,21 @@ Es solo un aviso, no un error. El proyecto funciona correctamente.
 | python-dotenv | 1.2.2 |
 | huggingface-hub | 1.11.0 |
 
+## Glosario de Términos
+
+A continuación se describen los conceptos técnicos clave utilizados en este proyecto para facilitar la comprensión y evaluación del sistema:
+
+*   **PII (Personally Identifiable Information - Información de Identificación Personal)**: Cualquier dato que permita identificar de forma única a un individuo, como correos electrónicos, RUTs chilenos, nombres o números telefónicos. En este proyecto se anonimizan automáticamente para resguardar la privacidad y cumplir con la ética de protección de datos.
+*   **RAG (Retrieval-Augmented Generation - Generación Recuperada por Búsqueda)**: Técnica que complementa al modelo de lenguaje (LLM) inyectándole información relevante recuperada en tiempo real desde una base de datos externa (ChromaDB) para fundamentar sus respuestas.
+*   **ChromaDB**: Base de datos vectorial utilizada de forma local para indexar y buscar de manera eficiente similitudes semánticas en historiales clínicos veterinarios.
+*   **Embeddings**: Representaciones vectoriales numéricas que capturan el significado semántico de las palabras y textos. Este proyecto usa el modelo local `all-MiniLM-L6-v2`.
+*   **Observabilidad**: La capacidad de inferir los estados internos y comportamientos de un sistema a partir de las métricas externas recopiladas en tiempo real (como latencia, conteo de errores y groundedness).
+*   **Trazabilidad**: El registro cronológico detallado de las decisiones, llamadas a APIs y ejecuciones de herramientas que sigue el agente para dar respuesta a un requerimiento de usuario.
+*   **JSONL (JSON Lines)**: Formato de persistencia de archivos de texto estructurado donde cada línea representa un objeto JSON independiente. Ideal para la escritura rápida de logs y lectura con Pandas.
+*   **LLM (Large Language Model)**: El modelo fundacional de inteligencia artificial (`gpt-4o-mini` a través de GitHub Models API) encargado del procesamiento del lenguaje, la toma de decisiones y la generación de respuestas.
+*   **ReAct (Reasoning and Acting)**: Paradigma de agentes en el cual el LLM combina pasos de razonamiento lógico con el llamado a herramientas externas en bucle (Tool-Calling Loop) para resolver la tarea del usuario.
+*   **Groundedness**: Métrica de calidad que evalúa el nivel de consistencia y veracidad de la respuesta del agente respecto al contexto recuperado, previniendo alucinaciones en el diagnóstico y la orientación clínica.
+
 ---
 
 ## Indicadores de Logro
@@ -396,19 +433,25 @@ Es solo un aviso, no un error. El proyecto funciona correctamente.
 
 Chase, H. (2022). *LangChain* [Software]. GitHub. https://github.com/langchain-ai/langchain
 
+Chroma (Trychroma, Inc.). (2023). *Chroma: The open-source embedding database*. Chroma. https://docs.trychroma.com/
+
+Hugging Face. (2023). *Sentence Transformers: all-MiniLM-L6-v2*. Hugging Face. https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
+
 LangChain AI. (2024). *LangChain 1.2 documentation: Agents*. LangChain. https://python.langchain.com/docs/modules/agents/
 
 LangChain AI. (2024). *LangGraph: Build stateful, multi-actor applications with LLMs*. LangChain AI. https://langchain-ai.github.io/langgraph/
 
-Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., ... & Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. *Advances in Neural Information Processing Systems, 33*, 94599474. https://doi.org/10.48550/arXiv.2005.11401
+Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., ... & Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. *Advances in Neural Information Processing Systems, 33*, 9459–9474. https://doi.org/10.48550/arXiv.2005.11401
 
 Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence embeddings using Siamese BERT-networks. *Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing*. https://doi.org/10.48550/arXiv.1908.10084
 
+Streamlit Inc. (2024). *Streamlit: The fastest way to build and share data apps* [Software]. https://docs.streamlit.io/
+
 Yao, S., Zhao, J., Yu, D., Du, N., Shafran, I., Narasimhan, K., & Cao, Y. (2023). ReAct: Synergizing reasoning and acting in language models. *International Conference on Learning Representations (ICLR 2023)*. https://doi.org/10.48550/arXiv.2210.03629
 
-Chroma (Trychroma, Inc.). (2023). *Chroma: The open-source embedding database*. Chroma. https://docs.trychroma.com/
+Sipior, J. C., Ward, B. T., & Rainone, S. M. (2023). Ethical considerations of AI-driven systems and data protection regulation. *Information Systems Management, 40*(3), 234–249. https://doi.org/10.1080/10580530.2023.2189876
 
-Hugging Face. (2023). *Sentence Transformers: all-MiniLM-L6-v2*. Hugging Face. https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
+OpenAI. (2024). *Best practices for safety and privacy in LLM deployments*. OpenAI. https://platform.openai.com/docs/guides/safety-best-practices
 
 ---
 
