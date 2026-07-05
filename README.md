@@ -119,109 +119,119 @@ GITHUB_PAT_TOKEN=tu_github_personal_access_token
 
 ---
 
-## Ejecución
+## Ejecución y Monitoreo
 
-### Ejecutar el Agente Funcional
+### 1. Ejecutar el Agente Veterinario (Consola Interactiva)
 
 ```bash
 python agent.py
 ```
 
-**Primera ejecución:** el agente tarda ~30-60 segundos en iniciar porque descarga el modelo de embeddings `all-MiniLM-L6-v2` desde HuggingFace (solo ocurre una vez).
+- **Comandos especiales en el chat**:
+  - `estado`: Muestra estadísticas en tiempo real del buffer de memoria.
+  - `historial`: Imprime el historial del buffer conversacional de corto plazo.
+  - `salir`: Apaga el agente de forma segura.
 
-**Ejemplo de sesión con el Agente Funcional:**
-```
-=================================================================
-  AGENTE VETERINARIO FUNCIONAL
-=================================================================
-  Framework  : LangChain 1.2 + LangGraph (create_agent)
-  Herramientas: Consulta | Escritura | Razonamiento
-  Memoria    : Corto Plazo (buffer) + Largo Plazo (semantico)
-=================================================================
-
-[1/5] Configurando modelo de lenguaje (gpt-4o-mini)...
-[2/5] Cargando modelo de embeddings local (all-MiniLM-L6-v2)...
-[3/5] Indexando base de conocimiento clinico en ChromaDB...
-     50 registros clinicos indexados.
-[4/5] Inicializando sistema de memoria dual...
-[5/5] Construyendo agente con herramientas...
-     Agente compilado con 3 herramientas.
-
-Agente listo!
-
-Usuario: Mi gato tiene tos y lleva dos dias sin comer
-[Agente procesando...]
-
-VetBot responde:
------------------------------------------------------------------
-(respuesta del agente...)
-=================================================================
-
-Usuario: _
-```
-
-### Comandos especiales dentro del agente
-
-| Comando | Descripción |
-|---|---|
-| `estado` | Muestra estadísticas de memoria (turno, buffer actual) |
-| `historial` | Imprime la conversación reciente del buffer de corto plazo |
-| `salir` / `exit` / `quit` | Apaga el agente limpiamente |
-
-### Ejecutar el Chatbot RAG original (Evaluación Parcial 1)
+### 2. Ejecutar el Dashboard de Monitoreo y Observabilidad (Streamlit)
 
 ```bash
-python rag_chatbot.py
+streamlit run dashboard.py
+```
+
+Esto desplegará una interfaz web premium en tu navegador local (por defecto en `http://localhost:8501`) donde podrás monitorear el comportamiento del agente mediante gráficos interactivos en tiempo real.
+
+---
+
+## Nuevas Funcionalidades e Integración (EP3)
+
+El sistema ahora integra cuatro pilares fundamentales para la producción de sistemas de IA:
+
+1. **Seguridad y Privacidad (Anonimización de PII)**:
+   - Toda entrada del usuario es analizada por la función `sanitize_pii` antes de ser guardada en logs o enviada al modelo de lenguaje (LLM).
+   - Utiliza expresiones regulares optimizadas para interceptar correos electrónicos (`[REDACTED_EMAIL]`) y RUTs chilenos (`[REDACTED_RUT]`).
+
+2. **Trazabilidad y Logs Estructurados (`agent_logs.jsonl`)**:
+   - Cada interacción genera un registro único JSON conteniendo: `session_id` (UUID), `timestamp`, `user_input` (sanitizado), `agent_response` (sanitizada), `tools_used` (lista de herramientas llamadas), `latency` (en segundos), `tokens` (entrada, salida y total), `groundedness_score` y `errors` (fallas capturadas).
+
+3. **Métricas de Observabilidad**:
+   - **Latencia**: Registrada por turno y agregada en el panel.
+   - **Rendimiento y Costos**: Registro detallado de tokens usando callbacks nativos de LangChain.
+   - **Calidad y Estabilidad**: Cálculo heurístico de Groundedness (solapamiento contextual RAG) y conteo automático de excepciones en APIs y herramientas.
+
+4. **Dashboard Interactivo**:
+   - Construido con Streamlit, Pandas y Plotly. Permite analizar el uso de herramientas, consumo de tokens, evolución de la latencia e identificar anomalías dinámicamente mediante el criterio estadístico de $\mu + 1.5 \times \sigma$.
+
+---
+
+## Arquitectura Detallada del Sistema
+
+El siguiente diagrama ilustra cómo colaboran las funcionalidades originales con los nuevos módulos de seguridad y observabilidad en cada turno de conversación:
+
+```
+                  Usuario (Ingresa consulta con RUT / Email)
+                                   |
+                                   v
+             +-------------------------------------------+
+             |      Wrapper de Sanitización de PII       | <-- Quita datos sensibles
+             +-------------------------------------------+
+                                   |
+                         (Consulta Sanitizada)
+                                   |
+                                   v
+             +-------------------------------------------+
+             |         Sistema de Memoria Dual           |
+             |  - Corto Plazo (Buffer de mensajes)       |
+             |  - Largo Plazo (Recuperación semántica)   |
+             +-------------------------------------------+
+                                   |
+                       (Prompt Contextualizado)
+                                   |
+                                   v
+             +-------------------------------------------+
+             |     Planificación Adaptativa (LLM)        |
+             |  - Evalúa y decide uso de herramientas    |
+             |  - [search_clinical_db] -> RAG            |
+             |  - [analyze_symptoms] -> Reglas           |
+             |  - [write_visit_summary] -> Escritura     |
+             +-------------------------------------------+
+                                   |
+                                   v
+             +-------------------------------------------+
+             |     Cálculo de Métricas y Logging         |
+             |  - Latencia | Tokens | Groundedness       |
+             |  - Registra en 'agent_logs.jsonl'         |
+             +-------------------------------------------+
+                                   |
+                                   +--------> Dashboard de Streamlit (Monitoreo)
+                                   |
+                                   v
+                   Respuesta Final Sanitizada al Usuario
 ```
 
 ---
 
-## Arquitectura del Sistema
+## Cómo Validar la Observabilidad y la Trazabilidad
 
-```
-+------------------------------------------------------------------+
-|                  AGENTE VETERINARIO FUNCIONAL                    |
-|                                                                  |
-|   Usuario                                                        |
-|      |                                                           |
-|      v                                                           |
-|  +---------------------------------------------------------------+|
-|  |               SISTEMA DE MEMORIA DUAL                        ||
-|  |                                                               ||
-|  |  +-----------------------+   +---------------------------+   ||
-|  |  | CORTO PLAZO           |   | LARGO PLAZO               |   ||
-|  |  | ShortTermMemory       |   | MemoryStore               |   ||
-|  |  | HumanMessage/AIMessage|   | JSON persistente          |   ||
-|  |  | Buffer deslizante k=5 |   | Embeddings cosine sim.    |   ||
-|  |  +-----------------------+   +---------------------------+   ||
-|  +---------------------------------------------------------------+|
-|      |                                                           |
-|      v                                                           |
-|  +---------------------------------------------------------------+|
-|  |      create_agent()  LangGraph Tool-Calling Loop            ||
-|  |                                                               ||
-|  |  LLM decide si usar herramienta o responder directamente     ||
-|  |                                                               ||
-|  |  +-----------------------------------------------------+     ||
-|  |  |                   HERRAMIENTAS                      |     ||
-|  |  |                                                     |     ||
-|  |  | [CONSULTA]    search_clinical_db  -> ChromaDB RAG   |     ||
-|  |  | [ESCRITURA]   write_visit_summary -> JSONL file     |     ||
-|  |  | [RAZONAMIENTO] analyze_symptoms  -> Reglas urgencia |     ||
-|  |  +-----------------------------------------------------+     ||
-|  +---------------------------------------------------------------+|
-|      |                                                           |
-|      v                                                           |
-|  +---------------------------------------------------------------+|
-|  | LLM: gpt-4o-mini via GitHub Models (Azure Inference)         ||
-|  | Embeddings: all-MiniLM-L6-v2 (local, sin API key)            ||
-|  | Vector DB: ChromaDB (local, persistente)                      ||
-|  +---------------------------------------------------------------+|
-|      |                                                           |
-|      v                                                           |
-|   Respuesta final al Usuario                                     |
-+------------------------------------------------------------------+
-```
+Para verificar el cumplimiento técnico de los módulos implementados, realiza las siguientes pruebas:
+
+### 1. Validación de Seguridad (Sanitización PII)
+- Ejecuta `python agent.py`.
+- Introduce una consulta conteniendo datos personales simulados, por ejemplo:
+  `"Hola, mi correo es test@correo.cl y mi RUT es 19.345.678-9, ¿cómo está Toby?"`
+- Revisa el archivo `agent_logs.jsonl`. Deberás comprobar que los datos personales aparecen reemplazados por sus etiquetas redactadas tanto en `user_input` como en la respuesta, garantizando que ninguna PII se guarde en disco o se envíe al LLM.
+
+### 2. Validación de Métricas en el Dashboard
+- Ejecuta consultas rápidas y otras complejas que utilicen RAG.
+- Abre el dashboard con `streamlit run dashboard.py`.
+- Valida que:
+  - Las consultas totales aumenten y se calculen la latencia promedio y los tokens.
+  - Se grafique la frecuencia correcta de las herramientas llamadas (ej: `search_clinical_db` o `analyze_symptoms`).
+  - Las llamadas lentas (por ejemplo, el primer arranque del embedding o fallos de red) aparezcan destacadas en la tabla de **Consultas Anómalas** al exceder el umbral dinámico de anomalía.
+
+### 3. Validación de Errores y Calidad (Groundedness)
+- Desconecta la red local temporalmente o deshabilita la clave del `.env` y realiza una consulta. El dashboard de Streamlit mostrará inmediatamente la tasa de error incrementada y los detalles del fallo de API capturados en la sección **🎯 Calidad de Respuesta y Errores**.
+- Compara cómo varía la puntuación de `groundedness` entre respuestas directas del LLM (cercanas a 1.0 por no requerir validación de contexto) frente a respuestas basadas en la base de datos de historiales clínicos.
+
 
 ---
 
