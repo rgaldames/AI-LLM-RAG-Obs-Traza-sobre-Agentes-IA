@@ -49,8 +49,10 @@ source .venv/bin/activate
 
 ### 3. Instalar las dependencias del proyecto
 
-Las librerías del agente RAG junto con los nuevos módulos de observabilidad y el dashboard (`streamlit`, `pandas`, `plotly`) están empaquetadas en `requirements.txt`:
+> [!TIP]
+> **Archivo Único de Dependencias:** Se ha consolidado un archivo unificado y limpio llamado **`requirements.txt`** en la raíz del proyecto. Este archivo contiene todas las dependencias necesarias de LangChain, ChromaDB, Streamlit, Pandas y Plotly de nivel superior para evitar conflictos de sistema o de compilación.
 
+Para instalar todos los módulos necesarios de una sola vez, ejecuta:
 ```bash
 pip install -r requirements.txt
 ```
