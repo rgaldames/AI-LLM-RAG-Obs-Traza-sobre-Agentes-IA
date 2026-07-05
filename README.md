@@ -255,19 +255,7 @@ Tu token de GitHub no tiene habilitado el permiso de acceso a modelos.
 
 ---
 
-## 8. Indicadores de Logro (EP3)
-
-| IL | Indicador | Implementación en Proyecto |
-|---|---|---|
-| **IL2.1** | Herramientas de consulta, escritura y razonamiento | `search_clinical_db`, `write_visit_summary`, `analyze_symptoms` en `tools.py` |
-| **IL2.2** | Memoria de corto y largo plazo | `ShortTermMemory` (buffer de mensajes k=5) + `MemoryStore` (embeddings semánticos persistentes) |
-| **IL2.3** | Planificación y toma de decisiones adaptativas | Bucle de decisiones de LangGraph: el LLM elige dinámicamente si usar herramientas. |
-| **Observabilidad** | Registro de latencia, tokens y calidad | Logging estructurado JSONL + Dashboard analítico en Streamlit con detección de anomalías. |
-| **Seguridad** | Sanitización ética de PII | Wrappers y funciones de sanitización con expresiones regulares para ocultar RUTs y Emails. |
-
----
-
-## 9. Referencias Bibliográficas (APA)
+## 8. Referencias Bibliográficas (APA)
 
 Chase, H. (2022). *LangChain* [Software]. GitHub. https://github.com/langchain-ai/langchain
 
@@ -293,4 +281,4 @@ OpenAI. (2024). *Best practices for safety and privacy in LLM deployments*. Open
 
 ---
 *Desplegado con propósito académico - Ingeniería de Soluciones con IA, 2026.*  
-*por Ricardo A. Galdames Soto*
+*por Ricardo Antonio Galdames Soto*
