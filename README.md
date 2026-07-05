@@ -29,7 +29,7 @@ Sistema de agente funcional que integra herramientas de **consulta, escritura y 
 ### 1. Clona el repositorio
 
 ```bash
-git clone https://github.com/rgaldames/5sem-proyecto-llm-rag.git
+git clone https://github.com/rgaldames/AI-LLM-RAG-Obs-Traza-sobre-Agentes-IA
 cd 5sem-proyecto-llm-rag
 ```
 
@@ -156,8 +156,17 @@ python agent.py
 
 ### 2. Ejecutar el Dashboard de Monitoreo y Observabilidad (Streamlit)
 
+Asegúrate de tener el entorno virtual activo en la terminal actual. Si abres una nueva terminal, recuerda ejecutar primero `.\.venv\Scripts\activate` (Windows) o `source .venv/bin/activate` (macOS/Linux).
+
+Para correr el panel, ejecuta:
 ```bash
 streamlit run dashboard.py
+```
+
+**Nota para Windows / Solución de Problemas:**
+Si PowerShell o CMD no reconocen el comando `streamlit`, utiliza este comando alternativo que ejecuta el módulo directamente a través de Python:
+```bash
+python -m streamlit run dashboard.py
 ```
 
 Esto desplegará una interfaz web premium en tu navegador local (por defecto en `http://localhost:8501`) donde podrás monitorear el comportamiento del agente mediante gráficos interactivos en tiempo real.
@@ -243,49 +252,17 @@ Para verificar el cumplimiento técnico de los módulos implementados, realiza l
 - Revisa el archivo `agent_logs.jsonl`. Deberás comprobar que los datos personales aparecen reemplazados por sus etiquetas redactadas tanto en `user_input` como en la respuesta, garantizando que ninguna PII se guarde en disco o se envíe al LLM.
 
 ### 2. Validación de Métricas en el Dashboard
-## Como Validar el Modelo
+- Ejecuta consultas rápidas y otras complejas que utilicen RAG.
+- Abre el dashboard con `streamlit run dashboard.py`.
+- Valida que:
+  - Las consultas totales aumenten y se calculen la latencia promedio y los tokens.
+  - Se grafique la frecuencia correcta de las herramientas llamadas (ej: `search_clinical_db` o `analyze_symptoms`).
+  - Las llamadas lentas (por ejemplo, el primer arranque del embedding o fallos de red) aparezcan destacadas en la tabla de **Consultas Anómalas** al exceder el umbral dinámico de anomalía.
 
-Para evidenciar el correcto funcionamiento, trazabilidad y observabilidad sobre el agente de IA, se debe seguir este protocolo de validación:
+### 3. Validación de Errores y Calidad (Groundedness)
+- Desconecta la red local temporalmente o deshabilita la clave del `.env` y realiza una consulta. El dashboard de Streamlit mostrará inmediatamente la tasa de error incrementada y los detalles del fallo de API capturados en la sección **🎯 Calidad de Respuesta y Errores**.
+- Compara cómo varía la puntuación de `groundedness` entre respuestas directas del LLM (cercanas a 1.0 por no requerir validación de contexto) frente a respuestas basadas en la base de datos de historiales clínicos.
 
-### 1. Validación de Latencia (Tiempo de Respuesta)
-- **Método**: Realizar una consulta en `agent.py` que requiera consultar la base de datos (ej: *"¿Qué registros de otitis existen?"*).
-- **Evidencia**: 
-  - En la consola, notarás el tiempo que demora en buscar en ChromaDB.
-  - En `agent_logs.jsonl`, verifica el campo `"latency"`. Por ejemplo: `"latency": 3.4215` (segundos).
-  - En el Dashboard de Streamlit, se graficará este valor en la línea de tiempo. Si supera el umbral $\mu + 1.5 \times \sigma$, aparecerá listado en la sección de anomalías de latencia.
-
-### 2. Validación de Rendimiento y Costos (Uso de Tokens)
-- **Método**: Ingresa una pregunta y observa el desglose de tokens acumulados.
-- **Evidencia**:
-  - En la traza del JSONL, verás el objeto `"tokens"`, por ejemplo:
-    ```json
-    "tokens": {
-      "input_tokens": 185,
-      "output_tokens": 74,
-      "total_tokens": 259
-    }
-    ```
-  - En el dashboard, la gráfica de barra apilada mostrará la proporción exacta de tokens consumidos en prompts (costo de entrada) versus generación (costo de salida), lo que permite evaluar el rendimiento y costos acumulados del agente.
-
-### 3. Validación de Calidad (Groundedness Score contra Alucinaciones)
-- **Método**: Realizar una prueba contrastando dos tipos de preguntas:
-  - **Pregunta RAG Coherente**: *"¿Qué tratamiento se aplicó al paciente Toby?"* -> El agente recupera el historial de Toby y responde en base a ello. El log registrará un `"groundedness_score"` alto (ej. `0.80` a `1.00`), indicando alta fidelidad.
-  - **Pregunta sin Contexto / Alucinación**: *"Háblame sobre física cuántica"* -> El agente no tiene esta información en ChromaDB. Si responde usando solo su pre-entrenamiento, el log registrará un `"groundedness_score"` muy bajo (ej. `0.00` a `0.20`), permitiendo detectar alucinaciones fuera del dominio.
-- **Evidencia**: En el dashboard, se puede monitorear el histograma de groundedness para asegurar que la mayoría de respuestas estén basadas en el contexto inyectado.
-
-### 4. Captura de Errores y Excepciones
-- **Método**: Fuerza un error en el flujo (por ejemplo, desconectando internet o alterando la clave en el `.env`) y realiza una consulta.
-- **Evidencia**:
-  - El sistema captura la excepción sin detenerse y registra el error en la traza:
-    ```json
-    "errors": ["Execution Error: Connection timed out"]
-    ```
-  - En el dashboard, la métrica de **Errores Detectados** se actualizará y el detalle del error aparecerá en la tabla de calidad de respuestas.
-
-### 5. Herramientas de Trazabilidad y Observabilidad sobre el Agente Desarrollado
-Para ver las métricas consolidadas del agente en producción:
-1. **Logs Crudos**: Abre el archivo `agent_logs.jsonl` para auditar cada interacción en formato JSON.
-2. **Dashboard Visual**: Ejecuta `streamlit run dashboard.py` en tu terminal para levantar el panel interactivo y ver los gráficos dinámicos de uso de herramientas, consumo de tokens y latencias.
 
 ---
 
